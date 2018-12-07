@@ -12,6 +12,8 @@ class ThriftHttpClient(TTransportBase):
     def __init__(self, uri, service_name, client_principal, keytab_location):
         assert uri
         assert service_name
+        assert client_principal
+        assert keytab_location
         self.__uri = uri
         self.__service_name = service_name
         self.__wbuf = StringIO()
@@ -44,6 +46,7 @@ class ThriftHttpClient(TTransportBase):
         self.__wbuf.write(buf)
 
     def flush(self):
+        self.check_and_kinit()
         # Pull data out of buffer
         data = self.__wbuf.getvalue()
         self.__wbuf = StringIO()
@@ -58,7 +61,19 @@ class ThriftHttpClient(TTransportBase):
         if self.__response and self.__response.cookies and self.__response.cookies.__len__() > 0:
             self.__cookies = self.__response.cookies
 
-    def kinit(self):
+    # checks if TGT for client_principal is present in credential cache
+    def tgt_present(self):
+        p = Popen('klist', stdout=PIPE, stderr=PIPE)
+        out = p.stdout.read()
+        return out and self.__client_principal in out
+
+    def check_and_kinit(self):
+        if self.tgt_present():
+            return True
+        log.debug('TGT not present in credential cache. Doing kinit.')
         cmd = ['kinit', '-kt', self.__keytab, self.__client_principal]
-        success = Popen(cmd, stdout=PIPE, stderr=PIPE).returncode
-        return not bool(success)
+        p = Popen(cmd, stdout=PIPE, stderr=PIPE)
+        err = p.stderr.read()
+        if err:
+            log.error('kinit failed with error.\n' + err)
+            raise RuntimeError(err)
