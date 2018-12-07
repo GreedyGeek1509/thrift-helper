@@ -9,6 +9,15 @@ log = logging.getLogger(__name__)
 
 
 class ThriftHttpClient(TTransportBase):
+    """Http implementation of TTransport base with the support
+    for Kerberos authentication and cookie management.
+
+    required python modules:
+        1. requests
+        2. requests_kerberos
+        3. logging
+    """
+
     def __init__(self, uri, service_name, client_principal, keytab_location):
         assert uri
         assert service_name
@@ -22,8 +31,10 @@ class ThriftHttpClient(TTransportBase):
         self.__response = None
         self.__client_principal = client_principal
         self.__keytab = keytab_location
-        self.__kerb_auth = HTTPKerberosAuth(hostname_override=service_name, mutual_authentication=REQUIRED,
-                                            force_preemptive=False, principal=client_principal)
+        self.__kerb_auth = HTTPKerberosAuth(principal=client_principal,
+                                            hostname_override=service_name,  # service principal without HTTP/ prefix
+                                            mutual_authentication=REQUIRED,
+                                            force_preemptive=False)
 
     def isOpen(self):
         return True
