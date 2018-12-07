@@ -18,7 +18,7 @@ class ThriftHttpClient(TTransportBase):
         self.__service_name = service_name
         self.__wbuf = StringIO()
         self.__content = None
-        self.__cookies = None
+        self.__cookie_store = None
         self.__response = None
         self.__client_principal = client_principal
         self.__keytab = keytab_location
@@ -55,11 +55,18 @@ class ThriftHttpClient(TTransportBase):
                    'Content-Type' : 'application/x-thrift',
                    'Content-Length' : str(len(data))
                    }
-        self.__response = requests.post(url=self.__uri, data=data, headers=headers,
-                                        cookies=self.__cookies, auth=self.__kerb_auth)
+        self.__response = requests.post(url=self.__uri,
+                                        data=data,
+                                        headers=headers,
+                                        cookies=self.__cookie_store,
+                                        auth=self.__kerb_auth)
         self.__content = self.__response.content
+        self.update_cookie()
+
+    def update_cookie(self):
         if self.__response and self.__response.cookies and self.__response.cookies.__len__() > 0:
-            self.__cookies = self.__response.cookies
+            self.__cookie_store = self.__response.cookies
+            log.debug('updated cookie store.')
 
     # checks if TGT for client_principal is present in credential cache
     def tgt_present(self):
